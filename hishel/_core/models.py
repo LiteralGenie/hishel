@@ -67,6 +67,8 @@ class RequestMetadata(TypedDict, total=False):
     This is useful for caching POST or QUERY requests with different bodies.
     """
 
+    hishel_force_refetch: bool | None
+
 
 def extract_metadata_from_headers(
     headers: Mapping[str, str],
@@ -97,7 +99,9 @@ class Request:
     method: str
     url: str
     headers: Headers = field(default_factory=lambda: Headers({}))
-    stream: Iterator[bytes] | AsyncIterator[bytes] = field(default_factory=lambda: iter(AnyIterable()))
+    stream: Iterator[bytes] | AsyncIterator[bytes] = field(
+        default_factory=lambda: iter(AnyIterable())
+    )
     metadata: RequestMetadata | Mapping[str, Any] = field(default_factory=dict)
 
     def _iter_stream(self) -> Iterator[bytes]:
@@ -170,7 +174,9 @@ class ResponseMetadata(TypedDict, total=False):
 class Response:
     status_code: int
     headers: Headers = field(default_factory=lambda: Headers({}))
-    stream: Iterator[bytes] | AsyncIterator[bytes] = field(default_factory=lambda: iter(AnyIterable()))
+    stream: Iterator[bytes] | AsyncIterator[bytes] = field(
+        default_factory=lambda: iter(AnyIterable())
+    )
     metadata: ResponseMetadata | Mapping[str, Any] = field(default_factory=dict)
 
     def _iter_stream(self) -> Iterator[bytes]:

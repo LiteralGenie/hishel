@@ -94,10 +94,13 @@ def _httpx_to_internal(
     )
     if isinstance(value, httpx.Request):
         extension_metadata = RequestMetadata(
-            hishel_refresh_ttl_on_access=value.extensions.get("hishel_refresh_ttl_on_access"),
+            hishel_refresh_ttl_on_access=value.extensions.get(
+                "hishel_refresh_ttl_on_access"
+            ),
             hishel_ttl=value.extensions.get("hishel_ttl"),
             hishel_spec_ignore=value.extensions.get("hishel_spec_ignore"),
             hishel_body_key=value.extensions.get("hishel_body_key"),
+            hishel_force_refetch=value.extensions.get("hishel_force_refetch"),
         )
         headers_metadata = extract_metadata_from_headers(value.headers)
 
@@ -119,7 +122,9 @@ def _httpx_to_internal(
         )
     elif isinstance(value, httpx.Response):
         stream = (
-            make_async_iterator([value.content]) if value.is_stream_consumed else value.aiter_raw(chunk_size=CHUNK_SIZE)
+            make_async_iterator([value.content])
+            if value.is_stream_consumed
+            else value.aiter_raw(chunk_size=CHUNK_SIZE)
         )
 
         if value.is_stream_consumed and "content-encoding" in value.headers:
@@ -205,7 +210,9 @@ class AsyncCacheClient(httpx.AsyncClient):
         trust_env: bool = True,
         http1: bool = True,
         http2: bool = False,
-        limits: httpx.Limits = httpx.Limits(max_connections=100, max_keepalive_connections=20),
+        limits: httpx.Limits = httpx.Limits(
+            max_connections=100, max_keepalive_connections=20
+        ),
         transport: httpx.AsyncBaseTransport | None = None,
         **kwargs: t.Any,
     ) -> httpx.AsyncBaseTransport:
@@ -233,7 +240,9 @@ class AsyncCacheClient(httpx.AsyncClient):
         trust_env: bool = True,
         http1: bool = True,
         http2: bool = False,
-        limits: httpx.Limits = httpx.Limits(max_connections=100, max_keepalive_connections=20),
+        limits: httpx.Limits = httpx.Limits(
+            max_connections=100, max_keepalive_connections=20
+        ),
         **kwargs: t.Any,
     ) -> httpx.AsyncBaseTransport:
         return AsyncCacheTransport(

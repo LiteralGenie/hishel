@@ -99,15 +99,19 @@ class AsyncCacheProxy:
 
         logger.debug(f"Found {len(entries)} cached entries for the request")
 
-        for entry in entries:
-            if (
-                str(entry.request.url) == str(request.url)
-                and entry.request.method == request.method
-                and vary_headers_match(
-                    request,
-                    entry,
-                )
-            ):
+        resp = None
+        if not request.metadata.get("hishel_force_refetch"):
+            for entry in entries:
+                if (
+                    str(entry.request.url) != str(request.url)
+                    or entry.request.method != request.method
+                    or not vary_headers_match(
+                        request,
+                        entry,
+                    )
+                ):
+                    continue
+
                 logger.debug(
                     "Found matching cached response for the request",
                 )
@@ -118,8 +122,12 @@ class AsyncCacheProxy:
                     hishel_stored=False,
                 )
                 entry.response.metadata.update(response_meta)  # type: ignore
-                await self._maybe_refresh_entry_ttl(entry)
-                return entry.response
+                resp = entry.response
+                break
+
+        if resp:
+            await self._maybe_refresh_entry_ttl(entry)
+            return resp
 
         response = await self.send_request(request)
         for response_filter in self.policy.response_filters:
@@ -177,14 +185,18 @@ class AsyncCacheProxy:
         raise RuntimeError("Unreachable")
 
     async def _handle_idle_state(self, state: IdleClient, request: Request) -> AnyState:
-        stored_entries = await self.storage.get_entries(await self._get_key_for_request(request))
+        stored_entries = await self.storage.get_entries(
+            await self._get_key_for_request(request)
+        )
         return state.next(request, stored_entries)
 
     async def _handle_cache_miss(self, state: CacheMiss) -> AnyState:
         response = await self.send_request(state.request)
         return state.next(response)
 
-    async def _handle_store_and_use(self, state: StoreAndUse, request: Request) -> Response:
+    async def _handle_store_and_use(
+        self, state: StoreAndUse, request: Request
+    ) -> Response:
         entry = await self.storage.create_entry(
             request,
             state.response,
@@ -202,7 +214,9 @@ class AsyncCacheProxy:
                 updating_entry.id,
                 lambda existing_entry: replace(
                     existing_entry,
-                    response=replace(existing_entry.response, headers=updating_entry.response.headers),
+                    response=replace(
+                        existing_entry.response, headers=updating_entry.response.headers
+                    ),
                 ),
             )
         return state.next()
