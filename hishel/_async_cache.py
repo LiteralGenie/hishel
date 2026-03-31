@@ -96,6 +96,7 @@ class AsyncCacheProxy:
         logger.debug("Trying to get cached response ignoring specification")
         cache_key = await self._get_key_for_request(request)
         entries = await self.storage.get_entries(cache_key)
+        entries.sort(key=lambda entry: entry.meta.created_at, reverse=True)
 
         logger.debug(f"Found {len(entries)} cached entries for the request")
 
@@ -185,18 +186,14 @@ class AsyncCacheProxy:
         raise RuntimeError("Unreachable")
 
     async def _handle_idle_state(self, state: IdleClient, request: Request) -> AnyState:
-        stored_entries = await self.storage.get_entries(
-            await self._get_key_for_request(request)
-        )
+        stored_entries = await self.storage.get_entries(await self._get_key_for_request(request))
         return state.next(request, stored_entries)
 
     async def _handle_cache_miss(self, state: CacheMiss) -> AnyState:
         response = await self.send_request(state.request)
         return state.next(response)
 
-    async def _handle_store_and_use(
-        self, state: StoreAndUse, request: Request
-    ) -> Response:
+    async def _handle_store_and_use(self, state: StoreAndUse, request: Request) -> Response:
         entry = await self.storage.create_entry(
             request,
             state.response,
@@ -214,9 +211,7 @@ class AsyncCacheProxy:
                 updating_entry.id,
                 lambda existing_entry: replace(
                     existing_entry,
-                    response=replace(
-                        existing_entry.response, headers=updating_entry.response.headers
-                    ),
+                    response=replace(existing_entry.response, headers=updating_entry.response.headers),
                 ),
             )
         return state.next()

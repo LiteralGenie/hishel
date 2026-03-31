@@ -96,18 +96,23 @@ class SyncCacheProxy:
         logger.debug("Trying to get cached response ignoring specification")
         cache_key = self._get_key_for_request(request)
         entries = self.storage.get_entries(cache_key)
+        entries.sort(key=lambda entry: entry.meta.created_at, reverse=True)
 
         logger.debug(f"Found {len(entries)} cached entries for the request")
 
-        for entry in entries:
-            if (
-                str(entry.request.url) == str(request.url)
-                and entry.request.method == request.method
-                and vary_headers_match(
-                    request,
-                    entry,
-                )
-            ):
+        resp = None
+        if not request.metadata.get("hishel_force_refetch"):
+            for entry in entries:
+                if (
+                    str(entry.request.url) != str(request.url)
+                    or entry.request.method != request.method
+                    or not vary_headers_match(
+                        request,
+                        entry,
+                    )
+                ):
+                    continue
+
                 logger.debug(
                     "Found matching cached response for the request",
                 )
@@ -118,8 +123,12 @@ class SyncCacheProxy:
                     hishel_stored=False,
                 )
                 entry.response.metadata.update(response_meta)  # type: ignore
-                self._maybe_refresh_entry_ttl(entry)
-                return entry.response
+                resp = entry.response
+                break
+
+        if resp:
+            self._maybe_refresh_entry_ttl(entry)
+            return resp
 
         response = self.send_request(request)
         for response_filter in self.policy.response_filters:

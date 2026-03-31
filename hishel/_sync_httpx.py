@@ -98,6 +98,7 @@ def _httpx_to_internal(
             hishel_ttl=value.extensions.get("hishel_ttl"),
             hishel_spec_ignore=value.extensions.get("hishel_spec_ignore"),
             hishel_body_key=value.extensions.get("hishel_body_key"),
+            hishel_force_refetch=value.extensions.get("hishel_force_refetch"),
         )
         headers_metadata = extract_metadata_from_headers(value.headers)
 
